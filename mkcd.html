@@ -61,6 +61,7 @@
   <h1>MakeCode Game Browser</h1>
 <div id="count" style="margin-bottom: 20px; font-size: 18px;"></div>
 <h3>
+  *There may be some duplicated just ignore them
 <small>
 
 <a href="/makecode-arcade-game-browser/about.html">about</a>
@@ -156,7 +157,7 @@ Promise.all(filesToLoad.map(file => fetch(file).then(res => res.json())))
     index = 0;
 
     // ➕ Add this line:
-    document.getElementById("count").textContent = `This collection contains ${games.length} games`;
+    document.getElementById("count").textContent = `This collection contains ${games.length} games*`;
 
     displayNextChunk();
   });
