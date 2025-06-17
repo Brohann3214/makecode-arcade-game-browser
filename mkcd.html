@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MakeCode Game Browser</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f8f8f8;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-bottom: 20px;
+      box-sizing: border-box;
+    }
+
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 10px;
+      width: 200px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      text-align: center;
+      transition: transform 0.2s;
+    }
+
+    .card:hover {
+      transform: scale(1.02);
+    }
+
+    .card img {
+      max-width: 100%;
+      border-radius: 6px;
+    }
+
+    .title {
+      font-weight: bold;
+      margin: 10px 0 5px;
+    }
+
+    .link {
+      display: block;
+      margin-top: 5px;
+      font-size: 14px;
+      color: #0077cc;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>MakeCode Game Browser</h1>
+<div id="count" style="margin-bottom: 20px; font-size: 18px;"></div>
+<h3>
+<small>
+
+<a href="/about.html">about</a>
+
+<a href="/disclaimer.html">disclaimer</a>
+
+</small>
+</h3>
+<br>
+
+
+  <input type="text" id="search" placeholder="Search games by name or ID...">
+
+  <div class="grid" id="results"></div>
+<script>
+  const filesToLoad = ["games_modified.json", "games2.json", "games(1).json", "games(2).json", "games(3).json", "games(4).json", "games(5).json"]; // Add all your files here
+  let games = [];
+  let filtered = [];
+  let index = 0;
+  const chunkSize = 30;
+  let loading = false;
+
+  // Load all JSON files
+  Promise.all(filesToLoad.map(file => fetch(file).then(res => res.json())))
+    .then(fileData => {
+      games = fileData.flat();
+      filtered = games;
+      index = 0;
+      displayNextChunk();
+    });
+
+  // Display a chunk
+  function displayNextChunk() {
+    if (loading) return;
+    loading = true;
+
+    const results = document.getElementById('results');
+    const nextChunk = filtered.slice(index, index + chunkSize);
+
+    nextChunk.forEach(game => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+        <img src="${game.thumb}" alt="${game.name}">
+        <div class="title">${game.name}</div>
+        <a class="link" href="https://arcade.makecode.com/${game.id}" target="_blank">Play</a>
+      `;
+      results.appendChild(div);
+    });
+
+    index += chunkSize;
+    loading = false;
+  }
+
+  // Search handler
+  document.getElementById('search').addEventListener('input', e => {
+    const term = e.target.value.toLowerCase();
+    filtered = games
+      .map(game => ({
+        ...game,
+        score: getMatchScore(game, term)
+      }))
+      .filter(g => g.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    index = 0;
+    document.getElementById('results').innerHTML = '';
+    displayNextChunk();
+  });
+
+  function getMatchScore(game, term) {
+    if (!term) return 1;
+    const name = game.name?.toLowerCase() || '';
+    const id = game.id?.toLowerCase() || '';
+    let score = 0;
+    if (name.includes(term)) score += 2;
+    if (name.startsWith(term)) score += 3;
+    if (id.includes(term)) score += 1;
+    return score;
+  }
+
+  // Infinite scroll
+  window.addEventListener('scroll', () => {
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+      displayNextChunk();
+    }
+  });
+
+Promise.all(filesToLoad.map(file => fetch(file).then(res => res.json())))
+  .then(fileData => {
+    games = fileData.flat();
+    filtered = games;
+    index = 0;
+
+    // ➕ Add this line:
+    document.getElementById("count").textContent = `This collection contains ${games.length} games`;
+
+    displayNextChunk();
+  });
+</script>
+  </body>
+</html>
