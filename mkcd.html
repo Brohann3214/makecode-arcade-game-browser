@@ -10,12 +10,15 @@
       background: #f8f8f8;
     }
 
-    input[type="text"] {
-      width: 100%;
+    input, select {
       padding: 12px;
       font-size: 16px;
-      margin-bottom: 20px;
+      margin: 0 0 20px 0;
       box-sizing: border-box;
+    }
+
+    select {
+      margin-left: 10px;
     }
 
     .grid {
@@ -59,109 +62,122 @@
 </head>
 <body>
   <h1>MakeCode Game Browser</h1>
-<div id="count" style="margin-bottom: 20px; font-size: 18px;"></div>
-<h3>
-  
-<small>
-*There may be some duplicated games just ignore them
-  <br>
-<a href="/makecode-arcade-game-browser/about.html">about</a>
-
-<a href="/makecode-arcade-game-browser/disclaimer.html">disclaimer</a>
-
-</small>
-</h3>
-<br>
-
+  <div id="count" style="margin-bottom: 20px; font-size: 18px;"></div>
 
   <input type="text" id="search" placeholder="Search games by name or ID...">
+  <select id="filter">
+    <option value="any">Any</option>
+  </select>
 
   <div class="grid" id="results"></div>
-<script>
-  const filesToLoad = ["games_modified.json", "games2.json", "games(1).json", "games(2).json", "games(3).json", "games(4).json", "games(5).json", "games(6).json", "games(7).json", "games(8).json", "games(9).json", "games(0).json"]; // Add all your files here
-  let games = [];
-  let filtered = [];
-  let index = 0;
-  const chunkSize = 30;
-  let loading = false;
 
-  // Load all JSON files
-  Promise.all(filesToLoad.map(file => fetch(file).then(res => res.json())))
-    .then(fileData => {
-      games = fileData.flat();
+  <script>
+    const filesToLoad = ["games1.json", "games2.json", "games3.json"]; // your actual JSON files here
+    const allGames = {};  // key: file name, value: list of games
+    let games = [];
+    let filtered = [];
+    let index = 0;
+    const chunkSize = 30;
+    let loading = false;
+
+    const searchInput = document.getElementById('search');
+    const filterSelect = document.getElementById('filter');
+    const countDiv = document.getElementById('count');
+    const results = document.getElementById('results');
+
+    // Load all JSONs
+    Promise.all(filesToLoad.map(file =>
+      fetch(file).then(res => res.json()).then(data => {
+        allGames[file] = data;
+        const opt = document.createElement("option");
+        opt.value = file;
+        opt.textContent = file;
+        filterSelect.appendChild(opt);
+        return data;
+      })
+    )).then(data => {
+      games = data.flat();
       filtered = games;
       index = 0;
+      updateCount();
       displayNextChunk();
     });
 
-  // Display a chunk
-  function displayNextChunk() {
-    if (loading) return;
-    loading = true;
+    // Update displayed count
+    function updateCount() {
+      countDiv.textContent = `This collection contains ${filtered.length} games`;
+    }
 
-    const results = document.getElementById('results');
-    const nextChunk = filtered.slice(index, index + chunkSize);
+    // Show a chunk
+    function displayNextChunk() {
+      if (loading) return;
+      loading = true;
 
-    nextChunk.forEach(game => {
-      const div = document.createElement('div');
-      div.className = 'card';
-      div.innerHTML = `
-        <img src="${game.thumb}" alt="${game.name}">
-        <div class="title">${game.name}</div>
-        <a class="link" href="https://arcade.makecode.com/${game.id}" target="_blank">Play</a>
-      `;
-      results.appendChild(div);
-    });
+      const next = filtered.slice(index, index + chunkSize);
+      next.forEach(game => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <img src="${game.thumb}" alt="${game.name}">
+          <div class="title">${game.name}</div>
+          <a class="link" href="https://arcade.makecode.com/${game.id}" target="_blank">Play</a>
+        `;
+        results.appendChild(div);
+      });
 
-    index += chunkSize;
-    loading = false;
-  }
+      index += chunkSize;
+      loading = false;
+    }
 
-  // Search handler
-  document.getElementById('search').addEventListener('input', e => {
-    const term = e.target.value.toLowerCase();
-    filtered = games
-      .map(game => ({
-        ...game,
-        score: getMatchScore(game, term)
-      }))
-      .filter(g => g.score > 0)
-      .sort((a, b) => b.score - a.score);
+    // Handle filtering and search
+    function applyFilters() {
+      const term = searchInput.value.toLowerCase();
+      const fileFilter = filterSelect.value;
 
-    index = 0;
-    document.getElementById('results').innerHTML = '';
-    displayNextChunk();
-  });
+      let base = [];
 
-  function getMatchScore(game, term) {
-    if (!term) return 1;
-    const name = game.name?.toLowerCase() || '';
-    const id = game.id?.toLowerCase() || '';
-    let score = 0;
-    if (name.includes(term)) score += 2;
-    if (name.startsWith(term)) score += 3;
-    if (id.includes(term)) score += 1;
-    return score;
-  }
+      if (fileFilter === "any") {
+        base = Object.values(allGames).flat();
+      } else {
+        base = allGames[fileFilter] || [];
+      }
 
-  // Infinite scroll
-  window.addEventListener('scroll', () => {
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+      filtered = base
+        .map(g => ({
+          ...g,
+          score: getMatchScore(g, term)
+        }))
+        .filter(g => g.score > 0)
+        .sort((a, b) => b.score - a.score);
+
+      index = 0;
+      results.innerHTML = "";
+      updateCount();
       displayNextChunk();
     }
-  });
 
-Promise.all(filesToLoad.map(file => fetch(file).then(res => res.json())))
-  .then(fileData => {
-    games = fileData.flat();
-    filtered = games;
-    index = 0;
+    // Search score
+    function getMatchScore(game, term) {
+      if (!term) return 1;
+      const name = game.name?.toLowerCase() || '';
+      const id = game.id?.toLowerCase() || '';
+      let score = 0;
+      if (name.includes(term)) score += 2;
+      if (name.startsWith(term)) score += 3;
+      if (id.includes(term)) score += 1;
+      return score;
+    }
 
-    // ➕ Add this line:
-    document.getElementById("count").textContent = `This collection contains ${games.length} games*`;
+    // Scroll to load more
+    window.addEventListener('scroll', () => {
+      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+        displayNextChunk();
+      }
+    });
 
-    displayNextChunk();
-  });
-</script>
-  </body>
+    // Search and filter events
+    searchInput.addEventListener('input', applyFilters);
+    filterSelect.addEventListener('change', applyFilters);
+  </script>
+</body>
 </html>
